@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 import 'package:routesapp/backend/Locationservice.dart';
+import 'package:web_socket_channel/io.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -15,6 +16,8 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
+  final channel =
+      IOWebSocketChannel.connect("ws://192.168.100.6:8081/indanger");
   // Raw coordinates got from  OpenRouteService
   List listOfPoints = [];
 
@@ -55,41 +58,100 @@ class _MapScreenState extends State<MapScreen> {
               child: FutureBuilder(
                   future: LocationService().getLocation(),
                   builder: (context, snapshot) {
-                    return FlutterMap(
-                      options: MapOptions(
-                          zoom: 15,
-                          center: LatLng(snapshot.data?.latitude ?? 55,
-                              snapshot.data?.longitude ?? 23)),
-                      children: [
-                        // Layer that adds the map
-                        TileLayer(
-                          urlTemplate:
-                              "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-                          userAgentPackageName:
-                              'dev.fleaflet.flutter_map.example',
+                    if (snapshot.connectionState == ConnectionState.active ||
+                        snapshot.connectionState == ConnectionState.done) {
+                      markers.add(Marker(
+                        point: LatLng(snapshot.data?.latitude ?? 0,
+                            snapshot.data?.longitude ?? 0),
+                        builder: (context) => IconButton(
+                          onPressed: () {
+                            showDialog(
+                                context: context,
+                                builder: (context) {
+                                  return Dialog(
+                                    child: Text("last seen"),
+                                  );
+                                });
+                          },
+                          icon: const Icon(Icons.location_on),
+                          color: Color.fromARGB(255, 13, 5, 70),
+                          iconSize: 45,
                         ),
-                        // Layer that adds points the map
-                        FutureBuilder(
-                            future: LocationService().getIndanger(),
-                            builder: (context, snapshot) {
-                              print(snapshot.data);
-                              return MarkerLayer(
-                                markers: markers,
-                              );
-                            }),
+                      ));
+                      return FlutterMap(
+                        options: MapOptions(
+                            zoom: 15,
+                            center: LatLng(snapshot.data?.latitude ?? 55,
+                                snapshot.data?.longitude ?? 23)),
+                        children: [
+                          // Layer that adds the map
+                          TileLayer(
+                            urlTemplate:
+                                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                            userAgentPackageName:
+                                'dev.fleaflet.flutter_map.example',
+                          ),
+                          // Layer that adds points the map
+                          StreamBuilder(
+                              stream: channel.stream,
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                        ConnectionState.active ||
+                                    snapshot.connectionState ==
+                                        ConnectionState.done) {
+                                  final indangers =
+                                      json.decode(snapshot.data)["dangers"]
+                                          as List<dynamic>;
+                                  indangers.forEach((indanger) {
+                                    markers.add(Marker(
+                                      point: LatLng(
+                                          indanger["location"]["latitude"],
+                                          indanger["location"]["longitude"]),
+                                      builder: (context) => IconButton(
+                                        onPressed: () {
+                                          showDialog(
+                                              context: context,
+                                              builder: (context) {
+                                                return Dialog(
+                                                  child: Text("last seen"),
+                                                );
+                                              });
+                                        },
+                                        icon: const Icon(Icons.location_on),
+                                        color: Color.fromARGB(255, 172, 9, 9),
+                                        iconSize: 45,
+                                      ),
+                                    ));
+                                  });
+                                  return MarkerLayer(
+                                    markers: markers,
+                                  );
+                                } else {
+                                  return Container(
+                                      width: ScreenWidth * 0.1,
+                                      height: ScreenHeight * 0.2,
+                                      child: CircularProgressIndicator());
+                                }
+                              }),
 
-                        // Polylines layer
-                        PolylineLayer(
-                          polylineCulling: false,
-                          polylines: [
-                            Polyline(
-                                points: points,
-                                color: Colors.black,
-                                strokeWidth: 5),
-                          ],
-                        ),
-                      ],
-                    );
+                          // Polylines layer
+                          PolylineLayer(
+                            polylineCulling: false,
+                            polylines: [
+                              Polyline(
+                                  points: points,
+                                  color: Colors.black,
+                                  strokeWidth: 5),
+                            ],
+                          ),
+                        ],
+                      );
+                    } else {
+                      return Container(
+                          width: ScreenWidth * 0.1,
+                          height: ScreenHeight * 0.2,
+                          child: Text("waiting"));
+                    }
                   }),
             ),
           ),
@@ -104,29 +166,31 @@ class _MapScreenState extends State<MapScreen> {
               icon: Image.asset("assets/icon.png"),
               onPressed: () async {
                 final location = await LocationService().getLocation();
-                setState(() {
-                  markers.add(Marker(
-                    point: LatLng(
-                        location?.latitude ?? 0, location?.longitude ?? 0),
-                    builder: (context) => IconButton(
-                      onPressed: () {
-                        showDialog(
-                            context: context,
-                            builder: (context) {
-                              return Dialog(
-                                child: Text("last seen"),
-                              );
-                            });
-                      },
-                      icon: const Icon(Icons.location_on),
-                      color: Color.fromARGB(255, 13, 5, 70),
-                      iconSize: 45,
-                    ),
-                  ));
-                });
+                setState(() {});
               },
             ),
           ),
+          Row(
+            children: [
+              Icon(
+                Icons.location_on,
+                color: Colors.red,
+              ),
+              Text("Someone needs help"),
+            ],
+          ),
+          SizedBox(
+            height: ScreenHeight * 0.05,
+          ),
+          Row(
+            children: [
+              Icon(
+                Icons.location_on,
+                color: Color.fromARGB(255, 47, 2, 65),
+              ),
+              Text("You"),
+            ],
+          )
         ],
       ),
     );
