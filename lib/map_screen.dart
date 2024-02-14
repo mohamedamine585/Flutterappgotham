@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:routesapp/api.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
-import 'package:routesapp/backend/Locationservice.dart';
 import 'package:web_socket_channel/io.dart';
 
 class MapScreen extends StatefulWidget {
@@ -16,8 +16,6 @@ class MapScreen extends StatefulWidget {
 }
 
 class _MapScreenState extends State<MapScreen> {
-  final channel =
-      IOWebSocketChannel.connect("ws://192.168.100.6:8081/indanger");
   // Raw coordinates got from  OpenRouteService
   List listOfPoints = [];
 
@@ -47,19 +45,23 @@ class _MapScreenState extends State<MapScreen> {
     final ScreenWidth = MediaQuery.of(context).size.width;
     final ScreenHeight = MediaQuery.of(context).size.height;
     return Scaffold(
+      appBar: AppBar(),
       body: Column(
         children: [
+          SizedBox(
+            height: ScreenHeight * 0.1,
+          ),
           Center(
             child: Container(
               decoration:
                   BoxDecoration(borderRadius: BorderRadius.circular(20)),
               width: ScreenWidth,
-              height: ScreenHeight * 0.7,
+              height: ScreenHeight * 0.6,
               child: FutureBuilder(
-                  future: LocationService().getLocation(),
+                  future: Geolocator.getCurrentPosition(),
                   builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.active ||
-                        snapshot.connectionState == ConnectionState.done) {
+                    if (snapshot.connectionState == ConnectionState.done ||
+                        snapshot.connectionState == ConnectionState.active) {
                       markers.add(Marker(
                         point: LatLng(snapshot.data?.latitude ?? 0,
                             snapshot.data?.longitude ?? 0),
@@ -78,11 +80,12 @@ class _MapScreenState extends State<MapScreen> {
                           iconSize: 45,
                         ),
                       ));
+
                       return FlutterMap(
                         options: MapOptions(
                             zoom: 15,
-                            center: LatLng(snapshot.data?.latitude ?? 55,
-                                snapshot.data?.longitude ?? 23)),
+                            center: LatLng(snapshot.data?.latitude ?? 30,
+                                snapshot.data?.longitude ?? 15)),
                         children: [
                           // Layer that adds the map
                           TileLayer(
@@ -93,12 +96,14 @@ class _MapScreenState extends State<MapScreen> {
                           ),
                           // Layer that adds points the map
                           StreamBuilder(
-                              stream: channel.stream,
+                              stream: IOWebSocketChannel.connect(
+                                "ws://192.168.100.6:8081/indanger",
+                              ).stream,
                               builder: (context, snapshot) {
-                                if (snapshot.connectionState ==
+                                if ((snapshot.connectionState ==
                                         ConnectionState.active ||
                                     snapshot.connectionState ==
-                                        ConnectionState.done) {
+                                        ConnectionState.done)) {
                                   final indangers =
                                       json.decode(snapshot.data)["dangers"]
                                           as List<dynamic>;
@@ -127,10 +132,14 @@ class _MapScreenState extends State<MapScreen> {
                                     markers: markers,
                                   );
                                 } else {
-                                  return Container(
-                                      width: ScreenWidth * 0.1,
-                                      height: ScreenHeight * 0.2,
-                                      child: CircularProgressIndicator());
+                                  return Center(
+                                    child: Container(
+                                        width: ScreenWidth * 0.1,
+                                        height: ScreenHeight * 0.2,
+                                        child: Center(
+                                            child:
+                                                CircularProgressIndicator())),
+                                  );
                                 }
                               }),
 
@@ -148,45 +157,34 @@ class _MapScreenState extends State<MapScreen> {
                       );
                     } else {
                       return Container(
-                          width: ScreenWidth * 0.1,
-                          height: ScreenHeight * 0.2,
-                          child: Text("waiting"));
+                          width: ScreenWidth * 0.01,
+                          height: ScreenHeight * 0.02,
+                          child: Center(
+                            child: LinearProgressIndicator(),
+                          ));
                     }
                   }),
             ),
           ),
           SizedBox(
-            height: ScreenHeight * 0.1,
-          ),
-          Container(
-            width: 100,
-            child: IconButton(
-              style: ButtonStyle(iconSize: MaterialStatePropertyAll(10)),
-              color: Colors.red,
-              icon: Image.asset("assets/icon.png"),
-              onPressed: () async {
-                final location = await LocationService().getLocation();
-                setState(() {});
-              },
-            ),
+            height: ScreenHeight * 0.005,
           ),
           Row(
             children: [
-              Icon(
-                Icons.location_on,
-                color: Colors.red,
+              Container(
+                margin: EdgeInsets.only(left: ScreenWidth * 0.15),
+                child: Icon(
+                  Icons.location_on,
+                  color: Colors.red,
+                ),
               ),
               Text("Someone needs help"),
-            ],
-          ),
-          SizedBox(
-            height: ScreenHeight * 0.05,
-          ),
-          Row(
-            children: [
-              Icon(
-                Icons.location_on,
-                color: Color.fromARGB(255, 47, 2, 65),
+              Container(
+                margin: EdgeInsets.only(left: 5),
+                child: Icon(
+                  Icons.location_on,
+                  color: Color.fromARGB(255, 47, 2, 65),
+                ),
               ),
               Text("You"),
             ],

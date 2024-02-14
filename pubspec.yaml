@@ -44,6 +44,8 @@ dependencies:
   web_socket_channel: ^2.4.0
   flutter_background: ^1.2.0
   flutter_background_service: ^5.0.5
+  background_fetch: ^1.2.2
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:
