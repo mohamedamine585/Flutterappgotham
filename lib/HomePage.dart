@@ -28,6 +28,8 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  String dangerid = "";
+
   bool showwatchme = false;
 
   @override
@@ -82,8 +84,7 @@ class _MyHomePageState extends State<MyHomePage> {
                                             "Your location is being tracked",
                                             showwatchme);
                                         setState(() {});
-                                        String dangerid = "";
-
+                                        dangerid = "";
                                         Timer.periodic(Duration(seconds: 5),
                                             (timer) async {
                                           final instance =
@@ -242,9 +243,20 @@ class _MyHomePageState extends State<MyHomePage> {
                                           onPressed: () async {
                                             await fsnapshot.data
                                                 ?.setBool("canSendData", false);
-                                            setState(() {
-                                              showwatchme = true;
-                                            });
+                                            setState(() {});
+                                            await http.delete(
+                                                Uri.parse(
+                                                    "http://192.168.100.6:8080/indanger"),
+                                                headers: {
+                                                  'Content-Type':
+                                                      'application/json'
+                                                },
+                                                body: json.encode(
+                                                    {"dangerid": dangerid}));
+                                            await fsnapshot.data
+                                                ?.setBool("canSendData", true);
+
+                                            setState(() {});
                                           },
                                         ),
                                       ),
